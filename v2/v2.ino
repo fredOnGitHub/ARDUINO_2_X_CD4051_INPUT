@@ -1,12 +1,12 @@
 
 /*******************************************************
-Nom ......... : fredOnGithub
-Role ........ : Controlleur Midi USB (ou série) avec l'Arduino Uno 
-Auteur ...... : fredOnGithub
-Version ..... : V2 du 26/8/2021
-Licence ..... : GPL-3.0 License 
+  Nom ......... : fredOnGithub
+  Role ........ : Controlleur Midi USB (ou série) avec l'Arduino Uno
+  Auteur ...... : fredOnGithub
+  Version ..... : V2 du 26/8/2021
+  Licence ..... : GPL-3.0 License
 
-Compilation :___
+  Compilation :___
 
 ********************************************************/
 
@@ -31,6 +31,7 @@ struct BOUTON {
   byte pinINH;
   byte place;
   us etat;
+  bool verrou;
 };
 struct POT {
   byte pinINH;
@@ -41,7 +42,6 @@ struct CD4051_ {
   byte read_pin;
   byte out_pins[3];
   byte inhib[2];//2 composants CD4051
-  byte *BoutonPot;
 };
 
 /*************************************************************/
@@ -60,13 +60,14 @@ unsigned long t = 0;
 byte n;
 byte note = 0;
 us *pt_etat = 0;
+bool *pt_verrou;
 int r;
 
 /*************************************************************/
 void setup() {
   Serial.begin(BAUD);
   POTs[0] = {6, 0, 0};
-  BOUTONs[0] = {7, 7, 0};
+  BOUTONs[0] = {7, 7, 0, false};
   //  spl(0xffffffff, DEC);
   pinMode(CD4051.out_pins[0], OUTPUT);
   pinMode(CD4051.out_pins[1], OUTPUT);
@@ -100,25 +101,56 @@ void gere_pots(void) {
     note++;
   }
 }
-
-void gere_boutons(void) {
+void gere_boutons_hold(void) {
   for (n = 0; n < N_BOUTONs; n++) {
     pt_etat = &(BOUTONs[n].etat);
     r = f( BOUTONs[n].pinINH, BOUTONs[n].place);
-    if (r > 512) {
+    if (r > 512) {/*car diviser par 1023 -> 0 si 1022. Normalement pas de chlaouche*/
       *pt_etat = (*pt_etat << 1) | 0xe000;
-      /*car diviser par 1023 peut parfois donner 0 (vu)*/
     }
     else {
+      /*introduction d'un 1 (0x0001) qui va se décaler vers la gauche*/
       //https://my.eng.utah.edu/~cs5780/debouncing.pdf
       *pt_etat = (*pt_etat << 1) | 0xe000 | 0x0001;
     }
-    if (*pt_etat == 0xf000) {
-      envoie_midi(MESSAGE_NOTE_ON + CANAL, note, 0x40);
+    if (*pt_etat == 0xf000) {/*l'action se fait une fois le bouton libre après relâchement*/
+      envoie_midi(MESSAGE_NOTE_ON + CANAL, note, 0x40);/*fin de la gestion du rebond*/
     }
     note++;
   }
 }
+void gere_boutons_direct(void) {
+  for (n = 0; n < N_BOUTONs; n++) {
+    pt_etat = &(BOUTONs[n].etat);
+    pt_verrou = &(BOUTONs[n].verrou);
+    r = f( BOUTONs[n].pinINH, BOUTONs[n].place);
+    if (r > 512) {/*car diviser par 1023 -> 0 si 1022. Normalement pas de chlaouche*/
+      *pt_etat = (*pt_etat << 1) | 0xe000;/*la plupart du temps on est ici*/
+    }
+    else {/*appui ou rebond détecté*/
+      if ( ! (*pt_verrou)) {
+        *pt_verrou = true;
+        envoie_midi(MESSAGE_NOTE_ON + CANAL, note, 0x40);
+      }
+      /*introduction d'un 1 (0x0001) qui va se décaler vers la gauche*/
+      // voir https://my.eng.utah.edu/~cs5780/debouncing.pdf
+      *pt_etat = (*pt_etat << 1) | 0xe000 | 0x0001;
+    }
+    if (*pt_etat == 0xf000) {
+      *pt_verrou = false;/*fin de la gestion du rebond*/
+    }
+    note++;
+  }
+}
+void loop() {
+  note = 0;
+  gere_pots();
+//  gere_boutons_direct();
+  gere_boutons_hold();
+}
+
+
+/********************************************************************/
 //TEST de rapidité : dans les 40 ms c'est bien
 //bool ok;
 //void gere_boutons(void) {
@@ -146,11 +178,7 @@ void gere_boutons(void) {
 //    note++;
 //  }
 //}
-void loop() {
-  note = 0;
-  gere_pots();
-  gere_boutons();
-}
+
 //void loop() {//TESTs
 //  t = millis();
 //  for (int ii = 0; ii < 100; ii++) {

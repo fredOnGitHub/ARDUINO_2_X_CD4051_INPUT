@@ -1,4 +1,5 @@
 - [Use v2 directly](#use-v2-directly)
+  - [2 Modes : hold and direct](#2-modes--hold-and-direct)
 - [ARDUINO WITH 2_X_CD4051_INPUT : V1](#arduino-with-2_x_cd4051_input--v1)
   - [From this schematic :](#from-this-schematic-)
   - [Compilation with #define TEST](#compilation-with-define-test)
@@ -24,6 +25,12 @@ In v2 **pull up is used and has to be used**. If you use pull down, maybe you'll
 
 
 With test we get ~40ms : it is good enough.
+
+## 2 Modes : hold and direct
+
+Hold : action begins after complete hold (button free).
+
+Direct : action starting directly when a push is detected (and the time of managing debounce is over).
 
 <br><br>
 
