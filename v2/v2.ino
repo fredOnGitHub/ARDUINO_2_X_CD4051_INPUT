@@ -25,7 +25,12 @@ const byte CANAL = 13u;
 #define MESSAGE_CC 0xB0
 #define MESSAGE_NOTE_ON 0x90
 #define us unsigned short//2 octets
-#define uc unsigned char//1 octet == byte
+#define INH_1 6
+#define INH_2 7
+#define PIN_A 8
+#define PIN_B 9
+#define PIN_C 10
+#define PIN_LECTURE A0
 
 struct BOUTON {
   byte pinINH;
@@ -51,12 +56,6 @@ const byte /*0~255*/ N_BOUTONs = 1;
 BOUTON BOUTONs [ N_BOUTONs];
 POT POTs [ N_POTs];
 
-CD4051_ CD4051 = {
-  A0,
-  {8, 9, 10},
-  {6, 7},
-};
-unsigned long t = 0;
 byte n;
 byte note = 0;
 us *pt_etat = 0;
@@ -65,24 +64,27 @@ int r;
 
 /*************************************************************/
 void setup() {
+  
   Serial.begin(BAUD);
-  POTs[0] = {6, 0, 0};
-  BOUTONs[0] = {7, 7, 0, false};
-  //  spl(0xffffffff, DEC);
-  pinMode(CD4051.out_pins[0], OUTPUT);
-  pinMode(CD4051.out_pins[1], OUTPUT);
-  pinMode(CD4051.out_pins[2], OUTPUT);
-  for (byte k = 0; k < sizeof(CD4051.inhib) / sizeof(CD4051.inhib[0]); k++) {
-    pinMode (CD4051.inhib[k], OUTPUT);
-    digitalWrite(CD4051.inhib[k], DISABLE);
-  }
+  
+  POTs[0] = {INH_1, 0, 0};
+  BOUTONs[0] = {INH_2, 7, 0, false};
+  
+  pinMode(PIN_A, OUTPUT);
+  pinMode(PIN_B, OUTPUT);
+  pinMode(PIN_C, OUTPUT);
+  
+  pinMode(INH_1, OUTPUT);
+  pinMode(INH_2, OUTPUT);
+  digitalWrite(INH_1, DISABLE);
+  digitalWrite(INH_2, DISABLE);
 }
 int f(byte inh, byte place) {
   digitalWrite(inh, ENABLE);
-  digitalWrite(8 , (place & 0b001));
-  digitalWrite(9 , (place & 0b010) >> 1);
-  digitalWrite(10, (place & 0b100) >> 2);
-  int r = analogRead(A0);
+  digitalWrite(PIN_A , (place & 0b001));
+  digitalWrite(PIN_B , (place & 0b010) >> 1);
+  digitalWrite(PIN_C, (place & 0b100) >> 2);
+  int r = analogRead(PIN_LECTURE);
   digitalWrite(inh, DISABLE);
   return r;
 }
@@ -145,13 +147,14 @@ void gere_boutons_direct(void) {
 void loop() {
   note = 0;
   gere_pots();
-//  gere_boutons_direct();
+  //  gere_boutons_direct();
   gere_boutons_hold();
 }
 
 
 /********************************************************************/
 //TEST de rapidité : dans les 40 ms c'est bien
+//unsigned long t = 0;
 //bool ok;
 //void gere_boutons(void) {
 //  for (n = 0; n < N_BOUTONs; n++) {
